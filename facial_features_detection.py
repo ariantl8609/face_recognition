@@ -1,36 +1,62 @@
 import streamlit as st
-import cv2
 import numpy as np
 from PIL import Image
 import tempfile
 import os
 import urllib.request
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Import OpenCV with error handling
+try:
+    import cv2
+except ImportError as e:
+    st.error("Error: Failed to import OpenCV. Please check your installation.")
+    logger.error(f"OpenCV import error: {str(e)}")
+    st.stop()
 
 # Create application title and file uploader widget
 st.title("Facial Features Detection")
 video_file_buffer = st.file_uploader("Upload a video", type=['mp4', 'avi', 'mov'])
 
-# Function to download cascade files
-def download_cascade_files():
-    base_url = "https://raw.githubusercontent.com/opencv/opencv/master/data/haarcascades/"
-    cascade_files = {
-        'face': 'haarcascade_frontalface_default.xml',
-        'eye': 'haarcascade_eye.xml',
-        'mouth': 'haarcascade_smile.xml'
-    }
-    
-    if not os.path.exists('cascades'):
+# Create cascades directory if it doesn't exist
+if not os.path.exists('cascades'):
+    try:
         os.makedirs('cascades')
-    
-    for name, filename in cascade_files.items():
-        filepath = os.path.join('cascades', filename)
-        if not os.path.exists(filepath):
-            try:
-                urllib.request.urlretrieve(base_url + filename, filepath)
-            except Exception as e:
-                st.error(f"Error downloading {filename}: {str(e)}")
-                return None
-    return cascade_files
+    except Exception as e:
+        st.error(f"Error creating cascades directory: {str(e)}")
+        logger.error(f"Directory creation error: {str(e)}")
+        st.stop()
+
+# Function to download cascade files with better error handling
+def download_cascade_files():
+    try:
+        base_url = "https://raw.githubusercontent.com/opencv/opencv/master/data/haarcascades/"
+        cascade_files = {
+            'face': 'haarcascade_frontalface_default.xml',
+            'eye': 'haarcascade_eye.xml',
+            'mouth': 'haarcascade_smile.xml'
+        }
+        
+        for name, filename in cascade_files.items():
+            filepath = os.path.join('cascades', filename)
+            if not os.path.exists(filepath):
+                try:
+                    logger.info(f"Downloading {filename}...")
+                    urllib.request.urlretrieve(base_url + filename, filepath)
+                    logger.info(f"Successfully downloaded {filename}")
+                except Exception as e:
+                    st.error(f"Error downloading {filename}: {str(e)}")
+                    logger.error(f"Download error for {filename}: {str(e)}")
+                    return None
+        return cascade_files
+    except Exception as e:
+        st.error(f"Error in download_cascade_files: {str(e)}")
+        logger.error(f"Cascade files error: {str(e)}")
+        return None
 
 # Load cascades
 @st.cache_resource
